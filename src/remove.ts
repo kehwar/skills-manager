@@ -221,12 +221,14 @@ export async function removeCommand(skillNames: string[], options: RemoveOptions
         await rm(canonicalPath, { recursive: true, force: true });
       }
 
+      // Get the skill from the lock file, depending on the scope
       const lockEntry = isGlobal
         ? await getSkillFromLock(skillName)
         : await getSkillFromLocalLock(skillName, cwd);
       const effectiveSource = lockEntry?.source || 'local';
       const effectiveSourceType = lockEntry?.sourceType || 'local';
 
+      // Remove the skill from the lock file, depending on the scope
       if (isGlobal) {
         await removeSkillFromLock(skillName);
       } else {
