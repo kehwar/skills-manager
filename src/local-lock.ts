@@ -1,4 +1,4 @@
-import { readFile, writeFile, readdir, stat } from 'fs/promises';
+import { readFile, writeFile, readdir, stat, rm } from 'fs/promises';
 import { join, relative } from 'path';
 import { createHash } from 'crypto';
 
@@ -181,8 +181,14 @@ export async function removeSkillFromLocalLock(skillName: string, cwd?: string):
   }
 
   delete lock.skills[skillName];
-  await writeLocalLock(lock, cwd);
-  return true;
+
+  if (Object.keys(lock.skills).length === 0) {
+    await rm(getLocalLockPath(cwd), { force: true });
+    return true;
+  } else {
+    await writeLocalLock(lock, cwd);
+    return true;
+  }
 }
 
 function createEmptyLocalLock(): LocalSkillLockFile {

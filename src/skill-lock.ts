@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir } from 'fs/promises';
+import { readFile, writeFile, mkdir, rm } from 'fs/promises';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
 import { createHash } from 'crypto';
@@ -233,7 +233,12 @@ export async function removeSkillFromLock(skillName: string): Promise<boolean> {
   }
 
   delete lock.skills[skillName];
-  await writeSkillLock(lock);
+
+  if (Object.keys(lock.skills).length === 0) {
+    await rm(getSkillLockPath(), { force: true });
+  } else {
+    await writeSkillLock(lock);
+  }
   return true;
 }
 
