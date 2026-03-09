@@ -7,6 +7,7 @@ import {
   writeLocalLock,
   addSkillToLocalLock,
   removeSkillFromLocalLock,
+  getSkillFromLocalLock,
   computeSkillFolderHash,
   getLocalLockPath,
 } from '../src/local-lock.ts';
@@ -68,11 +69,8 @@ describe('local-lock', () => {
         const conflicted = `{
   "version": 1,
   "skills": {
-<<<<<<< HEAD
     "skill-a": { "source": "org/repo-a", "sourceType": "github", "computedHash": "aaa" }
-=======
     "skill-b": { "source": "org/repo-b", "sourceType": "github", "computedHash": "bbb" }
->>>>>>> feature-branch
   }
 }`;
         await writeFile(join(dir, 'skills-lock.json'), conflicted, 'utf-8');
@@ -222,6 +220,37 @@ describe('local-lock', () => {
           sourceType: 'github',
           computedHash: 'hash123',
         });
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe('getSkillFromLocalLock', () => {
+    it('returns the entry for an existing skill', async () => {
+      const dir = await mkdtemp(join(tmpdir(), 'lock-test-'));
+      try {
+        await addSkillToLocalLock(
+          'my-skill',
+          { source: 'org/repo', sourceType: 'github', computedHash: 'hash123' },
+          dir
+        );
+
+        const entry = await getSkillFromLocalLock('my-skill', dir);
+        expect(entry).not.toBeNull();
+        expect(entry!.source).toBe('org/repo');
+        expect(entry!.sourceType).toBe('github');
+        expect(entry!.computedHash).toBe('hash123');
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('returns null for a non-existent skill', async () => {
+      const dir = await mkdtemp(join(tmpdir(), 'lock-test-'));
+      try {
+        const entry = await getSkillFromLocalLock('no-such-skill', dir);
+        expect(entry).toBeNull();
       } finally {
         await rm(dir, { recursive: true, force: true });
       }

@@ -160,6 +160,17 @@ export async function addSkillToLocalLock(
 }
 
 /**
+ * Get a skill entry from the local lock file.
+ */
+export async function getSkillFromLocalLock(
+  skillName: string,
+  cwd?: string
+): Promise<LocalSkillLockEntry | null> {
+  const lock = await readLocalLock(cwd);
+  return lock.skills[skillName] ?? null;
+}
+
+/**
  * Remove a skill from the local lock file.
  */
 export async function removeSkillFromLocalLock(skillName: string, cwd?: string): Promise<boolean> {
