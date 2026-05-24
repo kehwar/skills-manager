@@ -1,10 +1,12 @@
 # AGENTS.md
 
-This file provides guidance to AI coding agents working on the `skills` CLI codebase.
+> **Fork** of [vercel-labs/skills](https://github.com/vercel-labs/skills) ([npm: skills](https://www.npmjs.com/package/skills)).
+
+This file provides guidance to AI coding agents working on the `@kehwar/skills` CLI codebase.
 
 ## Project Overview
 
-`skills` is the CLI for the open agent skills ecosystem.
+`@kehwar/skills` is a fork of the CLI for the open agent skills ecosystem.
 
 ## Commands
 

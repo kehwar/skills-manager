@@ -1,5 +1,7 @@
 # @kehwar/skills
 
+> **Fork** of [vercel-labs/skills](https://github.com/vercel-labs/skills) ([npm: skills](https://www.npmjs.com/package/skills)).
+
 The CLI for the open agent skills ecosystem.
 
 <!-- agent-list:start -->
