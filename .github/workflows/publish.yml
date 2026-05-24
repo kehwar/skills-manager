@@ -42,19 +42,6 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Import GPG signing key
-        # Pinned to a maintainer-owned fork of crazy-max/ghaction-import-gpg
-        # so a compromise of the upstream namespace can't push malicious code
-        # into our release pipeline. Update the SHA deliberately when pulling
-        # upstream changes.
-        uses: quuu/ghaction-import-gpg@72c784c2e295f26ec09b0c20761c93711beaa338
-        with:
-          gpg_private_key: ${{ secrets.PUBLISH_BOT_GPG_PRIVATE_KEY }}
-          git_user_signingkey: true
-          git_commit_gpgsign: true
-          git_tag_gpgsign: true
-          git_config_global: true
-
       - name: Reset generated files
         run: |
           git checkout -- ThirdPartyNoticeText.txt || true
