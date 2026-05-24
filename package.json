@@ -1,5 +1,5 @@
 {
-  "name": "skills",
+  "name": "@kehwar/skills",
   "version": "1.5.7",
   "description": "The open agent skills ecosystem",
   "type": "module",
@@ -94,11 +94,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/vercel-labs/skills.git"
+    "url": "git+https://github.com/kehwar/skills-manager.git"
   },
-  "homepage": "https://github.com/vercel-labs/skills#readme",
+  "homepage": "https://github.com/kehwar/skills-manager#readme",
   "bugs": {
-    "url": "https://github.com/vercel-labs/skills/issues"
+    "url": "https://github.com/kehwar/skills-manager/issues"
   },
   "author": "",
   "license": "MIT",
