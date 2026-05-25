@@ -392,6 +392,7 @@ async function main(): Promise<void> {
     case '--version':
     case '-v':
       console.log(VERSION);
+      console.log('Fork of vercel-labs/skills - the open agent skills ecosystem');
       break;
 
     default:
