@@ -65,7 +65,9 @@ function showLogo(): void {
 function showBanner(): void {
   showLogo();
   console.log();
-  console.log(`${DIM}The open agent skills ecosystem${RESET}`);
+  console.log(
+    `${DIM}Fork of ${RESET}${TEXT}vercel-labs/skills${RESET}${DIM} — the open agent skills ecosystem${RESET}`
+  );
   console.log();
   console.log(
     `  ${DIM}$${RESET} ${TEXT}npx skills add ${DIM}<package>${RESET}        ${DIM}Add a new skill${RESET}`
