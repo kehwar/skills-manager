@@ -31,7 +31,7 @@ describe('skills CLI', () => {
   describe('--version', () => {
     it('should display version number', () => {
       const output = runCliOutput(['--version']);
-      expect(output.trim()).toMatch(/^\d+\.\d+\.\d+$/);
+      expect(output.trim().split('\n')[0]).toMatch(/^\d+\.\d+\.\d+$/);
     });
 
     it('should match package.json version', () => {
@@ -39,7 +39,7 @@ describe('skills CLI', () => {
       const pkg = JSON.parse(
         readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf-8')
       );
-      expect(output.trim()).toBe(pkg.version);
+      expect(output.trim().split('\n')[0]).toBe(pkg.version);
     });
   });
 

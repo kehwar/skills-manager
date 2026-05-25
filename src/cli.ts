@@ -66,7 +66,7 @@ function showBanner(): void {
   showLogo();
   console.log();
   console.log(
-    `${DIM}Fork of ${RESET}${TEXT}vercel-labs/skills${RESET}${DIM} — the open agent skills ecosystem${RESET}`
+    `${DIM}Fork of ${RESET}${TEXT}vercel-labs/skills${RESET}${DIM} — The open agent skills ecosystem${RESET}`
   );
   console.log();
   console.log(
