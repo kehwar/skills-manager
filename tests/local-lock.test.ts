@@ -287,7 +287,7 @@ describe('local-lock', () => {
       }
     });
 
-    it('deletes the lock file when the last skill is removed', async () => {
+    it('keeps the lock file when the last skill is removed', async () => {
       const dir = await mkdtemp(join(tmpdir(), 'lock-test-'));
       try {
         await addSkillToLocalLock(
@@ -304,8 +304,8 @@ describe('local-lock', () => {
         const removed = await removeSkillFromLocalLock('only-skill', dir);
         expect(removed).toBe(true);
 
-        // File should no longer exist
-        await expect(access(lockPath)).rejects.toThrow();
+        // File should still exist (not deleted)
+        await expect(access(lockPath)).resolves.toBeUndefined();
       } finally {
         await rm(dir, { recursive: true, force: true });
       }
