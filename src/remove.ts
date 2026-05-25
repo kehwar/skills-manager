@@ -8,6 +8,7 @@ import { detectAgent } from './detect-agent.ts';
 import { removeSkillFromLock, getSkillFromLock } from './skill-lock.ts';
 import { removeSkillFromLocalLock, getSkillFromLocalLock } from './local-lock.ts';
 import { removeSkillFromAllGroups } from './management.ts';
+import { getValidatedDefaultAgents } from './set-agent.ts';
 import type { AgentType } from './types.ts';
 import {
   getInstallPath,
@@ -52,10 +53,22 @@ export async function removeCommand(skillNames: string[], options: RemoveOptions
 
   const spinner = p.spinner();
 
+  // Determine target agents once — used for both listing and removal
+  let targetAgents: AgentType[];
+  if (options.agent && options.agent.length > 0) {
+    targetAgents = options.agent as AgentType[];
+  } else {
+    const defaultAgentsConfig = await getValidatedDefaultAgents(isGlobal ? 'global' : 'project');
+    targetAgents = defaultAgentsConfig ?? (Object.keys(agents) as AgentType[]);
+    if (defaultAgentsConfig) {
+      p.log.info(`Default agents: ${defaultAgentsConfig.join(', ')}`);
+    }
+  }
+
   spinner.start('Scanning for installed skills...');
   const installedSkillsData = await listInstalledSkills({
     global: isGlobal,
-    agentFilter: (options.agent?.length ? options.agent : undefined) as AgentType[] | undefined,
+    agentFilter: targetAgents,
   });
   const installedSkills = installedSkillsData.map((s) => s.name).sort();
 
@@ -97,16 +110,6 @@ export async function removeCommand(skillNames: string[], options: RemoveOptions
     }
 
     selectedSkills = selected as string[];
-  }
-
-  let targetAgents: AgentType[];
-  if (options.agent && options.agent.length > 0) {
-    targetAgents = options.agent as AgentType[];
-  } else {
-    // When removing, we should target all known agents to ensure
-    // ghost symlinks are cleaned up, even if the agent is not detected.
-    targetAgents = Object.keys(agents) as AgentType[];
-    spinner.stop(`Targeting ${targetAgents.length} potential agent(s)`);
   }
 
   if (!options.yes) {

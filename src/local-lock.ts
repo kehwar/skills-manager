@@ -47,6 +47,8 @@ export interface LocalSkillLockFile {
   version: number;
   /** Map of skill name to its lock entry (sorted alphabetically) */
   skills: Record<string, LocalSkillLockEntry>;
+  /** Default agents configured via `skills set agents` */
+  defaultAgents?: string[];
 }
 
 /**
@@ -96,6 +98,9 @@ export async function writeLocalLock(lock: LocalSkillLockFile, cwd?: string): Pr
   }
 
   const sorted: LocalSkillLockFile = { version: lock.version, skills: sortedSkills };
+  if (lock.defaultAgents) {
+    sorted.defaultAgents = lock.defaultAgents;
+  }
   const content = JSON.stringify(sorted, null, 2) + '\n';
   await writeFile(lockPath, content, 'utf-8');
 }
@@ -196,4 +201,21 @@ function createEmptyLocalLock(): LocalSkillLockFile {
     version: CURRENT_VERSION,
     skills: {},
   };
+}
+
+/**
+ * Get the default agents from the local lock file.
+ */
+export async function getLocalDefaultAgents(cwd?: string): Promise<string[] | undefined> {
+  const lock = await readLocalLock(cwd);
+  return lock.defaultAgents;
+}
+
+/**
+ * Set the default agents in the local lock file.
+ */
+export async function setLocalDefaultAgents(agents: string[], cwd?: string): Promise<void> {
+  const lock = await readLocalLock(cwd);
+  lock.defaultAgents = agents.length > 0 ? agents : undefined;
+  await writeLocalLock(lock, cwd);
 }

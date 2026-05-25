@@ -5,6 +5,7 @@ import { listInstalledSkills, type InstalledSkill } from './installer.ts';
 import { sanitizeMetadata } from './sanitize.ts';
 import { getAllLockedSkills } from './skill-lock.ts';
 import { getAllGroups } from './management.ts';
+import { getValidatedDefaultAgents } from './set-agent.ts';
 
 const RESET = '\x1b[0m';
 const BOLD = '\x1b[1m';
@@ -85,6 +86,11 @@ export async function runList(args: string[]): Promise<void> {
     }
 
     agentFilter = options.agent as AgentType[];
+  } else {
+    const defaultAgentsConfig = await getValidatedDefaultAgents(scope ? 'global' : 'project');
+    if (defaultAgentsConfig) {
+      agentFilter = defaultAgentsConfig;
+    }
   }
 
   const installedSkills = await listInstalledSkills({

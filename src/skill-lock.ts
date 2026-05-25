@@ -57,6 +57,8 @@ export interface SkillLockFile {
   dismissed?: DismissedPrompts;
   /** Last selected agents for installation */
   lastSelectedAgents?: string[];
+  /** Default agents configured via `skills set agents` */
+  defaultAgents?: string[];
 }
 
 /**
@@ -324,5 +326,22 @@ export async function getLastSelectedAgents(): Promise<string[] | undefined> {
 export async function saveSelectedAgents(agents: string[]): Promise<void> {
   const lock = await readSkillLock();
   lock.lastSelectedAgents = agents;
+  await writeSkillLock(lock);
+}
+
+/**
+ * Get the default agents from the lock file.
+ */
+export async function getDefaultAgents(): Promise<string[] | undefined> {
+  const lock = await readSkillLock();
+  return lock.defaultAgents;
+}
+
+/**
+ * Set the default agents in the lock file.
+ */
+export async function setDefaultAgents(agents: string[]): Promise<void> {
+  const lock = await readSkillLock();
+  lock.defaultAgents = agents.length > 0 ? agents : undefined;
   await writeSkillLock(lock);
 }

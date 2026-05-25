@@ -16,6 +16,7 @@ import { addSkillToLocalLock, computeSkillFolderHash, readLocalLock } from './lo
 import type { Skill, AgentType } from './types.ts';
 import { track } from './telemetry.ts';
 import { detectAgent, getAgentType } from './detect-agent.ts';
+import { getValidatedDefaultAgents } from './set-agent.ts';
 
 const isCancelled = (value: unknown): value is symbol => typeof value === 'symbol';
 
@@ -240,17 +241,58 @@ export async function runSync(args: string[], options: SyncOptions = {}): Promis
     }
     targetAgents = options.agent as AgentType[];
   } else {
-    spinner.start('Loading agents...');
-    const installedAgents = await detectInstalledAgents();
-    const totalAgents = Object.keys(agents).length;
-    spinner.stop(`${totalAgents} agents`);
+    const defaultAgentsConfig = await getValidatedDefaultAgents('project');
+    if (defaultAgentsConfig) {
+      targetAgents = defaultAgentsConfig;
+      p.log.info(`Syncing to default agents: ${defaultAgentsConfig.join(', ')}`);
+    } else {
+      spinner.start('Loading agents...');
+      const installedAgents = await detectInstalledAgents();
+      const totalAgents = Object.keys(agents).length;
+      spinner.stop(`${totalAgents} agents`);
 
-    if (installedAgents.length === 0) {
-      if (options.yes) {
-        targetAgents = universalAgents;
-        p.log.info('Installing to universal agents');
+      if (installedAgents.length === 0) {
+        if (options.yes) {
+          targetAgents = universalAgents;
+          p.log.info('Installing to universal agents');
+        } else {
+          const otherAgents = getNonUniversalAgents();
+
+          const otherChoices = otherAgents.map((a) => ({
+            value: a,
+            label: agents[a].displayName,
+            hint: agents[a].skillsDir,
+          }));
+
+          const selected = await searchMultiselect({
+            message: 'Which agents do you want to install to?',
+            items: otherChoices,
+            initialSelected: [],
+            lockedSection: {
+              title: 'Universal (.agents/skills)',
+              items: universalAgents.map((a) => ({
+                value: a,
+                label: agents[a].displayName,
+              })),
+            },
+          });
+
+          if (isCancelled(selected)) {
+            p.cancel('Sync cancelled');
+            process.exit(0);
+          }
+
+          targetAgents = selected as AgentType[];
+        }
+      } else if (installedAgents.length === 1 || options.yes) {
+        targetAgents = [...installedAgents];
+        for (const ua of universalAgents) {
+          if (!targetAgents.includes(ua)) {
+            targetAgents.push(ua);
+          }
+        }
       } else {
-        const otherAgents = getNonUniversalAgents();
+        const otherAgents = getNonUniversalAgents().filter((a) => installedAgents.includes(a));
 
         const otherChoices = otherAgents.map((a) => ({
           value: a,
@@ -261,7 +303,7 @@ export async function runSync(args: string[], options: SyncOptions = {}): Promis
         const selected = await searchMultiselect({
           message: 'Which agents do you want to install to?',
           items: otherChoices,
-          initialSelected: [],
+          initialSelected: installedAgents.filter((a) => !universalAgents.includes(a)),
           lockedSection: {
             title: 'Universal (.agents/skills)',
             items: universalAgents.map((a) => ({
@@ -278,42 +320,6 @@ export async function runSync(args: string[], options: SyncOptions = {}): Promis
 
         targetAgents = selected as AgentType[];
       }
-    } else if (installedAgents.length === 1 || options.yes) {
-      // Ensure universal agents are included
-      targetAgents = [...installedAgents];
-      for (const ua of universalAgents) {
-        if (!targetAgents.includes(ua)) {
-          targetAgents.push(ua);
-        }
-      }
-    } else {
-      const otherAgents = getNonUniversalAgents().filter((a) => installedAgents.includes(a));
-
-      const otherChoices = otherAgents.map((a) => ({
-        value: a,
-        label: agents[a].displayName,
-        hint: agents[a].skillsDir,
-      }));
-
-      const selected = await searchMultiselect({
-        message: 'Which agents do you want to install to?',
-        items: otherChoices,
-        initialSelected: installedAgents.filter((a) => !universalAgents.includes(a)),
-        lockedSection: {
-          title: 'Universal (.agents/skills)',
-          items: universalAgents.map((a) => ({
-            value: a,
-            label: agents[a].displayName,
-          })),
-        },
-      });
-
-      if (isCancelled(selected)) {
-        p.cancel('Sync cancelled');
-        process.exit(0);
-      }
-
-      targetAgents = selected as AgentType[];
     }
   }
 

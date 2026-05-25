@@ -75,6 +75,7 @@ import {
   type BlobInstallResult,
 } from './blob.ts';
 import packageJson from '../package.json' with { type: 'json' };
+import { getValidatedDefaultAgents } from './set-agent.ts';
 export function initTelemetry(version: string): void {
   setVersion(version);
 }
@@ -563,28 +564,52 @@ async function handleWellKnownSkills(
 
     targetAgents = options.agent as AgentType[];
   } else {
-    spinner.start('Loading agents...');
-    const installedAgents = await detectInstalledAgents();
-    const totalAgents = Object.keys(agents).length;
-    spinner.stop(`${totalAgents} agents`);
+    const defaultAgentsConfig = await getValidatedDefaultAgents();
+    if (defaultAgentsConfig) {
+      targetAgents = defaultAgentsConfig;
+      p.log.info(`Installing to default agents: ${defaultAgentsConfig.join(', ')}`);
+    } else {
+      spinner.start('Loading agents...');
+      const installedAgents = await detectInstalledAgents();
+      const totalAgents = Object.keys(agents).length;
+      spinner.stop(`${totalAgents} agents`);
 
-    if (installedAgents.length === 0) {
-      if (options.yes) {
-        targetAgents = validAgents as AgentType[];
-        p.log.info('Installing to all agents');
+      if (installedAgents.length === 0) {
+        if (options.yes) {
+          targetAgents = Object.keys(agents) as AgentType[];
+          p.log.info('Installing to all agents');
+        } else {
+          p.log.info('Select agents to install skills to');
+
+          const allAgentChoices = Object.entries(agents).map(([key, config]) => ({
+            value: key as AgentType,
+            label: config.displayName,
+          }));
+
+          const selected = await promptForAgents(
+            'Which agents do you want to install to?',
+            allAgentChoices
+          );
+
+          if (p.isCancel(selected)) {
+            p.cancel('Installation cancelled');
+            process.exit(0);
+          }
+
+          targetAgents = selected as AgentType[];
+        }
+      } else if (installedAgents.length === 1 || options.yes) {
+        targetAgents = ensureUniversalAgents(installedAgents);
+        if (installedAgents.length === 1) {
+          const firstAgent = installedAgents[0]!;
+          p.log.info(`Installing to: ${pc.cyan(agents[firstAgent].displayName)}`);
+        } else {
+          p.log.info(
+            `Installing to: ${installedAgents.map((a) => pc.cyan(agents[a].displayName)).join(', ')}`
+          );
+        }
       } else {
-        p.log.info('Select agents to install skills to');
-
-        const allAgentChoices = Object.entries(agents).map(([key, config]) => ({
-          value: key as AgentType,
-          label: config.displayName,
-        }));
-
-        // Use helper to prompt with search
-        const selected = await promptForAgents(
-          'Which agents do you want to install to?',
-          allAgentChoices
-        );
+        const selected = await selectAgentsInteractive({ global: options.global });
 
         if (p.isCancel(selected)) {
           p.cancel('Installation cancelled');
@@ -593,26 +618,6 @@ async function handleWellKnownSkills(
 
         targetAgents = selected as AgentType[];
       }
-    } else if (installedAgents.length === 1 || options.yes) {
-      // Auto-select detected agents + ensure universal agents are included
-      targetAgents = ensureUniversalAgents(installedAgents);
-      if (installedAgents.length === 1) {
-        const firstAgent = installedAgents[0]!;
-        p.log.info(`Installing to: ${pc.cyan(agents[firstAgent].displayName)}`);
-      } else {
-        p.log.info(
-          `Installing to: ${installedAgents.map((a) => pc.cyan(agents[a].displayName)).join(', ')}`
-        );
-      }
-    } else {
-      const selected = await selectAgentsInteractive({ global: options.global });
-
-      if (p.isCancel(selected)) {
-        p.cancel('Installation cancelled');
-        process.exit(0);
-      }
-
-      targetAgents = selected as AgentType[];
     }
   }
 
@@ -1276,28 +1281,53 @@ export async function runAdd(args: string[], options: AddOptions = {}): Promise<
 
       targetAgents = options.agent as AgentType[];
     } else {
-      spinner.start('Loading agents...');
-      const installedAgents = await detectInstalledAgents();
-      const totalAgents = Object.keys(agents).length;
-      spinner.stop(`${totalAgents} agents`);
+      const defaultAgentsConfig = await getValidatedDefaultAgents();
+      if (defaultAgentsConfig) {
+        targetAgents = defaultAgentsConfig;
+        p.log.info(`Installing to default agents: ${defaultAgentsConfig.join(', ')}`);
+      } else {
+        spinner.start('Loading agents...');
+        const installedAgents = await detectInstalledAgents();
+        const totalAgents = Object.keys(agents).length;
+        spinner.stop(`${totalAgents} agents`);
 
-      if (installedAgents.length === 0) {
-        if (options.yes) {
-          targetAgents = validAgents as AgentType[];
-          p.log.info('Installing to all agents');
+        if (installedAgents.length === 0) {
+          if (options.yes) {
+            targetAgents = validAgents as AgentType[];
+            p.log.info('Installing to all agents');
+          } else {
+            p.log.info('Select agents to install skills to');
+
+            const allAgentChoices = Object.entries(agents).map(([key, config]) => ({
+              value: key as AgentType,
+              label: config.displayName,
+            }));
+
+            const selected = await promptForAgents(
+              'Which agents do you want to install to?',
+              allAgentChoices
+            );
+
+            if (p.isCancel(selected)) {
+              p.cancel('Installation cancelled');
+              await cleanup(tempDir);
+              process.exit(0);
+            }
+
+            targetAgents = selected as AgentType[];
+          }
+        } else if (installedAgents.length === 1 || options.yes) {
+          targetAgents = ensureUniversalAgents(installedAgents);
+          if (installedAgents.length === 1) {
+            const firstAgent = installedAgents[0]!;
+            p.log.info(`Installing to: ${pc.cyan(agents[firstAgent].displayName)}`);
+          } else {
+            p.log.info(
+              `Installing to: ${installedAgents.map((a) => pc.cyan(agents[a].displayName)).join(', ')}`
+            );
+          }
         } else {
-          p.log.info('Select agents to install skills to');
-
-          const allAgentChoices = Object.entries(agents).map(([key, config]) => ({
-            value: key as AgentType,
-            label: config.displayName,
-          }));
-
-          // Use helper to prompt with search
-          const selected = await promptForAgents(
-            'Which agents do you want to install to?',
-            allAgentChoices
-          );
+          const selected = await selectAgentsInteractive({ global: options.global });
 
           if (p.isCancel(selected)) {
             p.cancel('Installation cancelled');
@@ -1307,27 +1337,6 @@ export async function runAdd(args: string[], options: AddOptions = {}): Promise<
 
           targetAgents = selected as AgentType[];
         }
-      } else if (installedAgents.length === 1 || options.yes) {
-        // Auto-select detected agents + ensure universal agents are included
-        targetAgents = ensureUniversalAgents(installedAgents);
-        if (installedAgents.length === 1) {
-          const firstAgent = installedAgents[0]!;
-          p.log.info(`Installing to: ${pc.cyan(agents[firstAgent].displayName)}`);
-        } else {
-          p.log.info(
-            `Installing to: ${installedAgents.map((a) => pc.cyan(agents[a].displayName)).join(', ')}`
-          );
-        }
-      } else {
-        const selected = await selectAgentsInteractive({ global: options.global });
-
-        if (p.isCancel(selected)) {
-          p.cancel('Installation cancelled');
-          await cleanup(tempDir);
-          process.exit(0);
-        }
-
-        targetAgents = selected as AgentType[];
       }
     }
 

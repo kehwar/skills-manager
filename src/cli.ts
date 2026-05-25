@@ -13,6 +13,7 @@ import { flushTelemetry } from './telemetry.ts';
 import { isRunningInAgent } from './detect-agent.ts';
 import { runUpdate } from './update.ts';
 import { runDisable, runEnable, runGroup } from './management.ts';
+import { runSetAgents } from './set-agent.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -119,6 +120,11 @@ ${BOLD}Groups:${RESET}
   group <name> add <skills>    Add skills to a group
   group <name> remove <skills> Remove skills from a group
 
+${BOLD}Configuration:${RESET}
+  set agents [agents...]       Set default agents (project scope, saved to skills-lock.json)
+  set agents -g [agents...]    Set default agents (global scope, saved to skill lock file)
+  set agents [--clear] [-g]    Clear default agents
+
 ${BOLD}Updates:${RESET}
   update [skills...]   Update skills to latest versions (alias: upgrade)
 
@@ -182,6 +188,11 @@ ${BOLD}Examples:${RESET}
   ${DIM}$${RESET} skills ls --json                      ${DIM}# JSON output${RESET}
   ${DIM}$${RESET} skills find                          ${DIM}# interactive search${RESET}
   ${DIM}$${RESET} skills find typescript               ${DIM}# search by keyword${RESET}
+  ${DIM}$${RESET} skills set agents claude-code cursor ${DIM}# set default agents (project)${RESET}
+  ${DIM}$${RESET} skills set agents -g claude-code     ${DIM}# set default agents (global)${RESET}
+  ${DIM}$${RESET} skills set agents                    ${DIM}# show default agents${RESET}
+  ${DIM}$${RESET} skills set agents --clear            ${DIM}# clear default agents${RESET}
+  ${DIM}$${RESET} skills set agents --clear -g         ${DIM}# clear global default agents${RESET}
   ${DIM}$${RESET} skills update
   ${DIM}$${RESET} skills update my-skill             ${DIM}# update a single skill${RESET}
   ${DIM}$${RESET} skills update -g                    ${DIM}# update global skills only${RESET}
@@ -368,6 +379,9 @@ async function main(): Promise<void> {
       break;
     case 'group':
       await runGroup(restArgs);
+      break;
+    case 'set':
+      await runSetAgents(restArgs);
       break;
     case '--help':
     case '-h':
