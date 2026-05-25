@@ -12,6 +12,7 @@ import { runSync, parseSyncOptions } from './sync.ts';
 import { flushTelemetry } from './telemetry.ts';
 import { isRunningInAgent } from './detect-agent.ts';
 import { runUpdate } from './update.ts';
+import { runDisable, runEnable, runGroup } from './management.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -107,8 +108,16 @@ ${BOLD}Manage Skills:${RESET}
                        e.g. vercel-labs/agent-skills
                             https://github.com/vercel-labs/agent-skills
   remove [skills]      Remove installed skills
+  disable <skill>      Disable a skill (uninstall + preserve source)
+  enable <skill>       Re-enable a disabled skill
   list, ls             List installed skills
   find [query]         Search for skills interactively
+
+${BOLD}Groups:${RESET}
+  group list [-g]              List all groups
+  group <name> list            List skills in a group
+  group <name> add <skills>    Add skills to a group
+  group <name> remove <skills> Remove skills from a group
 
 ${BOLD}Updates:${RESET}
   update [skills...]   Update skills to latest versions (alias: upgrade)
@@ -161,6 +170,12 @@ ${BOLD}Examples:${RESET}
   ${DIM}$${RESET} skills remove                        ${DIM}# interactive remove${RESET}
   ${DIM}$${RESET} skills remove web-design             ${DIM}# remove by name${RESET}
   ${DIM}$${RESET} skills rm --global frontend-design
+  ${DIM}$${RESET} skills disable my-skill
+  ${DIM}$${RESET} skills enable my-skill
+  ${DIM}$${RESET} skills disable my-skill -g
+  ${DIM}$${RESET} skills group list
+  ${DIM}$${RESET} skills group engineering add grill-with-docs pr-review
+  ${DIM}$${RESET} skills group engineering list
   ${DIM}$${RESET} skills list                          ${DIM}# list project skills${RESET}
   ${DIM}$${RESET} skills ls -g                         ${DIM}# list global skills${RESET}
   ${DIM}$${RESET} skills ls -a claude-code             ${DIM}# filter by agent${RESET}
@@ -344,6 +359,15 @@ async function main(): Promise<void> {
     case 'update':
     case 'upgrade':
       await runUpdate(restArgs);
+      break;
+    case 'disable':
+      await runDisable(restArgs);
+      break;
+    case 'enable':
+      await runEnable(restArgs);
+      break;
+    case 'group':
+      await runGroup(restArgs);
       break;
     case '--help':
     case '-h':

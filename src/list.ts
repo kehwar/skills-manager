@@ -4,6 +4,7 @@ import { agents } from './agents.ts';
 import { listInstalledSkills, type InstalledSkill } from './installer.ts';
 import { sanitizeMetadata } from './sanitize.ts';
 import { getAllLockedSkills } from './skill-lock.ts';
+import { getAllGroups } from './managed-skills.ts';
 
 const RESET = '\x1b[0m';
 const BOLD = '\x1b[1m';
@@ -91,6 +92,9 @@ export async function runList(args: string[]): Promise<void> {
     agentFilter,
   });
 
+  // Fetch user-defined groups for annotation
+  const userGroups = await getAllGroups(scope ? 'global' : 'project');
+
   // JSON output mode: structured, no ANSI, untruncated agent lists
   if (options.json) {
     const jsonOutput = installedSkills.map((skill) => ({
@@ -123,6 +127,15 @@ export async function runList(args: string[]): Promise<void> {
     return;
   }
 
+  function getSkillGroup(skillName: string): string | null {
+    for (const [groupName, members] of Object.entries(userGroups)) {
+      if (members.includes(skillName)) {
+        return groupName;
+      }
+    }
+    return null;
+  }
+
   function printSkill(skill: InstalledSkill, indent: boolean = false): void {
     const prefix = indent ? '  ' : '';
     const shortPath = shortenPath(skill.canonicalPath, cwd);
@@ -138,17 +151,21 @@ export async function runList(args: string[]): Promise<void> {
   console.log(`${BOLD}${scopeLabel} Skills${RESET}`);
   console.log();
 
-  // Group skills by plugin
+  // Group skills: user-defined group > plugin group > General
   const groupedSkills: Record<string, InstalledSkill[]> = {};
   const ungroupedSkills: InstalledSkill[] = [];
 
   for (const skill of installedSkills) {
+    const userGroup = getSkillGroup(skill.name);
+    if (userGroup) {
+      if (!groupedSkills[userGroup]) groupedSkills[userGroup] = [];
+      groupedSkills[userGroup].push(skill);
+      continue;
+    }
     const lockEntry = lockedSkills[skill.name];
     if (lockEntry?.pluginName) {
       const group = lockEntry.pluginName;
-      if (!groupedSkills[group]) {
-        groupedSkills[group] = [];
-      }
+      if (!groupedSkills[group]) groupedSkills[group] = [];
       groupedSkills[group].push(skill);
     } else {
       ungroupedSkills.push(skill);
@@ -161,11 +178,14 @@ export async function runList(args: string[]): Promise<void> {
     // Print groups sorted alphabetically
     const sortedGroups = Object.keys(groupedSkills).sort();
     for (const group of sortedGroups) {
-      // Convert kebab-case to Title Case for display header
-      const title = group
-        .split('-')
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(' ');
+      // Use user-defined group name as-is; Title Case for plugin names
+      const isUserGroup = group in userGroups;
+      const title = isUserGroup
+        ? group
+        : group
+            .split('-')
+            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(' ');
 
       console.log(`${BOLD}${title}${RESET}`);
       const skills = groupedSkills[group];

@@ -7,6 +7,7 @@ import { track } from './telemetry.ts';
 import { detectAgent } from './detect-agent.ts';
 import { removeSkillFromLock, getSkillFromLock } from './skill-lock.ts';
 import { removeSkillFromLocalLock, getSkillFromLocalLock } from './local-lock.ts';
+import { removeSkillFromAllGroups } from './managed-skills.ts';
 import type { AgentType } from './types.ts';
 import {
   getInstallPath,
@@ -234,6 +235,11 @@ export async function removeCommand(skillNames: string[], options: RemoveOptions
       } else {
         await removeSkillFromLocalLock(skillName, cwd);
       }
+
+      // Remove the skill from all groups in managed-skills.json
+      await removeSkillFromAllGroups(skillName, isGlobal ? 'global' : 'project', cwd).catch(
+        () => {}
+      );
 
       results.push({
         skill: skillName,

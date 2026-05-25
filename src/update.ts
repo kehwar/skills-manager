@@ -19,6 +19,7 @@ import {
 } from './update-source.ts';
 import { cloneRepo, cleanupTempDir } from './git.ts';
 import { discoverSkills } from './skills.ts';
+import { parseSource } from './source-parser.ts';
 import { fetchRepoTree, findSkillMdPaths, getSkillFolderHashFromTree } from './blob.ts';
 import { removeCommand } from './remove.ts';
 import { sanitizeMetadata } from './sanitize.ts';
@@ -502,7 +503,8 @@ export async function updateProjectSkills(
 
   for (const [source, skillsForSource] of bySource) {
     const firstEntry = skillsForSource[0]!.entry;
-    const sourceUrl = firstEntry.source;
+    const parsed = parseSource(firstEntry.source);
+    const sourceUrl = parsed.url;
     const ref = firstEntry.ref;
 
     const allLockedForSource = Object.entries(localLock.skills)
