@@ -14,7 +14,7 @@ import {
   removeSkillFromAllGroups,
   getGroup,
   getAllGroups,
-} from './managed-skills.ts';
+} from './management.ts';
 
 const AGENTS_DIR = '.agents';
 const MANAGED_FILE = 'managed-skills.json';

@@ -7,7 +7,7 @@ import { track } from './telemetry.ts';
 import { detectAgent } from './detect-agent.ts';
 import { removeSkillFromLock, getSkillFromLock } from './skill-lock.ts';
 import { removeSkillFromLocalLock, getSkillFromLocalLock } from './local-lock.ts';
-import { removeSkillFromAllGroups } from './managed-skills.ts';
+import { removeSkillFromAllGroups } from './management.ts';
 import type { AgentType } from './types.ts';
 import {
   getInstallPath,

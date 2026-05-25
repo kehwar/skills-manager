@@ -4,7 +4,7 @@ import { agents } from './agents.ts';
 import { listInstalledSkills, type InstalledSkill } from './installer.ts';
 import { sanitizeMetadata } from './sanitize.ts';
 import { getAllLockedSkills } from './skill-lock.ts';
-import { getAllGroups } from './managed-skills.ts';
+import { getAllGroups } from './management.ts';
 
 const RESET = '\x1b[0m';
 const BOLD = '\x1b[1m';

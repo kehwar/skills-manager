@@ -1,20 +1,12 @@
+import { readFile, writeFile, mkdir } from 'fs/promises';
+import { join, dirname } from 'path';
+import { homedir } from 'os';
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
 import { getSkillFromLock } from './skill-lock.ts';
 import { getSkillFromLocalLock } from './local-lock.ts';
 import { removeCommand, parseRemoveOptions } from './remove.ts';
 import { runAdd } from './add.ts';
-import {
-  addDisabledSkill,
-  removeDisabledSkill,
-  getDisabledSkill,
-  getAllDisabledSkills,
-  getAllGroups,
-  getGroup,
-  addSkillToGroup,
-  removeSkillFromGroup,
-  removeSkillFromAllGroups,
-} from './managed-skills.ts';
 import { listInstalledSkills } from './installer.ts';
 import { agents } from './agents.ts';
 import { detectAgent } from './detect-agent.ts';
@@ -26,6 +18,174 @@ const DIM = '\x1b[38;5;102m';
 const TEXT = '\x1b[38;5;145m';
 const CYAN = '\x1b[36m';
 const YELLOW = '\x1b[33m';
+
+// --- Managed Skills Data Layer ---
+
+const AGENTS_DIR = '.agents';
+const MANAGED_FILE = 'managed-skills.json';
+const CURRENT_VERSION = 1;
+
+export interface ManagedSkillEntry {
+  source: string;
+  sourceType: string;
+  sourceUrl?: string;
+  skillPath?: string;
+  ref?: string;
+  groups?: string[];
+}
+
+export interface ManagedSkillsFile {
+  version: number;
+  disabled: Record<string, ManagedSkillEntry>;
+  groups: Record<string, string[]>;
+}
+
+function getManagedPath(scope: 'global' | 'project', cwd?: string): string {
+  if (scope === 'global') {
+    return join(homedir(), AGENTS_DIR, MANAGED_FILE);
+  }
+  return join(cwd || process.cwd(), AGENTS_DIR, MANAGED_FILE);
+}
+
+function createEmpty(): ManagedSkillsFile {
+  return { version: CURRENT_VERSION, disabled: {}, groups: {} };
+}
+
+export async function readManagedSkills(
+  scope: 'global' | 'project',
+  cwd?: string
+): Promise<ManagedSkillsFile> {
+  const filePath = getManagedPath(scope, cwd);
+  try {
+    const content = await readFile(filePath, 'utf-8');
+    const parsed = JSON.parse(content) as ManagedSkillsFile;
+    if (typeof parsed.version !== 'number') return createEmpty();
+    if (parsed.version < CURRENT_VERSION) return createEmpty();
+    return {
+      version: parsed.version,
+      disabled: parsed.disabled || {},
+      groups: parsed.groups || {},
+    };
+  } catch {
+    return createEmpty();
+  }
+}
+
+export async function writeManagedSkills(
+  data: ManagedSkillsFile,
+  scope: 'global' | 'project',
+  cwd?: string
+): Promise<void> {
+  const filePath = getManagedPath(scope, cwd);
+  await mkdir(dirname(filePath), { recursive: true });
+  const content = JSON.stringify(data, null, 2) + '\n';
+  await writeFile(filePath, content, 'utf-8');
+}
+
+export async function addDisabledSkill(
+  skillName: string,
+  entry: ManagedSkillEntry,
+  scope: 'global' | 'project',
+  cwd?: string
+): Promise<void> {
+  const data = await readManagedSkills(scope, cwd);
+  data.disabled[skillName] = entry;
+  await writeManagedSkills(data, scope, cwd);
+}
+
+export async function removeDisabledSkill(
+  skillName: string,
+  scope: 'global' | 'project',
+  cwd?: string
+): Promise<boolean> {
+  const data = await readManagedSkills(scope, cwd);
+  if (!(skillName in data.disabled)) return false;
+  delete data.disabled[skillName];
+  await writeManagedSkills(data, scope, cwd);
+  return true;
+}
+
+export async function getDisabledSkill(
+  skillName: string,
+  scope: 'global' | 'project',
+  cwd?: string
+): Promise<ManagedSkillEntry | null> {
+  const data = await readManagedSkills(scope, cwd);
+  return data.disabled[skillName] ?? null;
+}
+
+export async function getAllDisabledSkills(
+  scope: 'global' | 'project',
+  cwd?: string
+): Promise<Record<string, ManagedSkillEntry>> {
+  const data = await readManagedSkills(scope, cwd);
+  return { ...data.disabled };
+}
+
+export async function addSkillToGroup(
+  groupName: string,
+  skillName: string,
+  scope: 'global' | 'project',
+  cwd?: string
+): Promise<void> {
+  const data = await readManagedSkills(scope, cwd);
+  if (!data.groups[groupName]) {
+    data.groups[groupName] = [];
+  }
+  if (!data.groups[groupName].includes(skillName)) {
+    data.groups[groupName].push(skillName);
+  }
+  await writeManagedSkills(data, scope, cwd);
+}
+
+export async function removeSkillFromGroup(
+  groupName: string,
+  skillName: string,
+  scope: 'global' | 'project',
+  cwd?: string
+): Promise<void> {
+  const data = await readManagedSkills(scope, cwd);
+  if (!data.groups[groupName]) return;
+  data.groups[groupName] = data.groups[groupName].filter((s) => s !== skillName);
+  if (data.groups[groupName].length === 0) {
+    delete data.groups[groupName];
+  }
+  await writeManagedSkills(data, scope, cwd);
+}
+
+export async function removeSkillFromAllGroups(
+  skillName: string,
+  scope: 'global' | 'project',
+  cwd?: string
+): Promise<void> {
+  const data = await readManagedSkills(scope, cwd);
+  for (const groupName of Object.keys(data.groups)) {
+    const group = data.groups[groupName];
+    if (!group) continue;
+    data.groups[groupName] = group.filter((s) => s !== skillName);
+    if (data.groups[groupName].length === 0) {
+      delete data.groups[groupName];
+    }
+  }
+  await writeManagedSkills(data, scope, cwd);
+}
+
+export async function getGroup(
+  groupName: string,
+  scope: 'global' | 'project',
+  cwd?: string
+): Promise<string[] | null> {
+  const data = await readManagedSkills(scope, cwd);
+  return data.groups[groupName] ?? null;
+}
+
+export async function getAllGroups(
+  scope: 'global' | 'project',
+  cwd?: string
+): Promise<Record<string, string[]>> {
+  const data = await readManagedSkills(scope, cwd);
+  return { ...data.groups };
+}
 
 function parseScope(args: string[]): { global: boolean; rest: string[] } {
   const global = args.includes('-g') || args.includes('--global');
@@ -294,9 +454,9 @@ export async function runGroup(args: string[]): Promise<void> {
     }
     console.log(`${pc.bold(groupName)} ${DIM}(${scopeLabel})${RESET}`);
     console.log();
+    const installedSkills = await listInstalledSkills({ global: isGlobal });
     for (const skill of skills) {
-      const tracked = isGlobal ? await getAllLockedSkills() : (await readLocalLock(cwd)).skills;
-      const isInstalled = installed.some((s) => s.name === skill);
+      const isInstalled = installedSkills.some((s) => s.name === skill);
       const disabled = await getDisabledSkill(skill, scope, cwd);
       const isDisabled = disabled !== null;
       const prefix = isDisabled
