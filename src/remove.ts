@@ -1,8 +1,8 @@
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
-import { readdir, rm, lstat } from 'fs/promises';
+import { rm, lstat } from 'fs/promises';
 import { join } from 'path';
-import { agents, detectInstalledAgents } from './agents.ts';
+import { agents, detectInstalledAgents, isUniversalAgent } from './agents.ts';
 import { track } from './telemetry.ts';
 import { detectAgent } from './detect-agent.ts';
 import { removeSkillFromLock, getSkillFromLock } from './skill-lock.ts';
@@ -12,8 +12,8 @@ import type { AgentType } from './types.ts';
 import {
   getInstallPath,
   getCanonicalPath,
-  getCanonicalSkillsDir,
   sanitizeName,
+  listInstalledSkills,
 } from './installer.ts';
 
 export interface RemoveOptions {
@@ -38,49 +38,7 @@ export async function removeCommand(skillNames: string[], options: RemoveOptions
   const isGlobal = options.global ?? false;
   const cwd = process.cwd();
 
-  const spinner = p.spinner();
-
-  spinner.start('Scanning for installed skills...');
-  const skillNamesSet = new Set<string>();
-
-  const scanDir = async (dir: string) => {
-    try {
-      const entries = await readdir(dir, { withFileTypes: true });
-      for (const entry of entries) {
-        if (entry.isDirectory()) {
-          skillNamesSet.add(entry.name);
-        }
-      }
-    } catch (err) {
-      if (err instanceof Error && (err as { code?: string }).code !== 'ENOENT') {
-        p.log.warn(`Could not scan directory ${dir}: ${err.message}`);
-      }
-    }
-  };
-
-  if (isGlobal) {
-    await scanDir(getCanonicalSkillsDir(true, cwd));
-    for (const agent of Object.values(agents)) {
-      if (agent.globalSkillsDir !== undefined) {
-        await scanDir(agent.globalSkillsDir);
-      }
-    }
-  } else {
-    await scanDir(getCanonicalSkillsDir(false, cwd));
-    for (const agent of Object.values(agents)) {
-      await scanDir(join(cwd, agent.skillsDir));
-    }
-  }
-
-  const installedSkills = Array.from(skillNamesSet).sort();
-  spinner.stop(`Found ${installedSkills.length} unique installed skill(s)`);
-
-  if (installedSkills.length === 0) {
-    p.outro(pc.yellow('No skills found to remove.'));
-    return;
-  }
-
-  // Validate agent options BEFORE prompting for skill selection
+  // Validate agent options BEFORE scanning for skills
   if (options.agent && options.agent.length > 0) {
     const validAgents = Object.keys(agents);
     const invalidAgents = options.agent.filter((a) => !validAgents.includes(a));
@@ -90,6 +48,22 @@ export async function removeCommand(skillNames: string[], options: RemoveOptions
       p.log.info(`Valid agents: ${validAgents.join(', ')}`);
       process.exit(1);
     }
+  }
+
+  const spinner = p.spinner();
+
+  spinner.start('Scanning for installed skills...');
+  const installedSkillsData = await listInstalledSkills({
+    global: isGlobal,
+    agentFilter: (options.agent?.length ? options.agent : undefined) as AgentType[] | undefined,
+  });
+  const installedSkills = installedSkillsData.map((s) => s.name).sort();
+
+  spinner.stop(`Found ${installedSkills.length} unique installed skill(s)`);
+
+  if (installedSkills.length === 0) {
+    p.outro(pc.yellow('No skills found to remove.'));
+    return;
   }
 
   let selectedSkills: string[] = [];
@@ -162,6 +136,7 @@ export async function removeCommand(skillNames: string[], options: RemoveOptions
     sourceType?: string;
     error?: string;
   }[] = [];
+  const retainedPaths: { skill: string; retainedBy: AgentType[] }[] = [];
 
   for (const skillName of selectedSkills) {
     try {
@@ -209,17 +184,21 @@ export async function removeCommand(skillNames: string[], options: RemoveOptions
       const remainingAgents = installedAgents.filter((a) => !targetAgents.includes(a));
 
       let isStillUsed = false;
+      let retainedByAgents: AgentType[] = [];
       for (const agentKey of remainingAgents) {
+        if (isUniversalAgent(agentKey)) continue;
         const path = getInstallPath(skillName, agentKey, { global: isGlobal, cwd });
         const exists = await lstat(path).catch(() => null);
         if (exists) {
           isStillUsed = true;
-          break;
+          retainedByAgents.push(agentKey);
         }
       }
 
       if (!isStillUsed) {
         await rm(canonicalPath, { recursive: true, force: true });
+      } else {
+        retainedPaths.push({ skill: skillName, retainedBy: retainedByAgents });
       }
 
       // Get the skill from the lock file, depending on the scope
@@ -257,6 +236,15 @@ export async function removeCommand(skillNames: string[], options: RemoveOptions
   }
 
   spinner.stop('Removal process complete');
+
+  // Warn about skills retained because other agents still use them
+  if (retainedPaths.length > 0) {
+    for (const { skill, retainedBy } of retainedPaths) {
+      const agentNames = retainedBy.map((a) => agents[a].displayName).join(', ');
+      p.log.warn(pc.yellow(`Skill "${skill}" kept on disk — still used by: ${agentNames}`));
+    }
+    console.log();
+  }
 
   const successful = results.filter((r) => r.success);
   const failed = results.filter((r) => !r.success);

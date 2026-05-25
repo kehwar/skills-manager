@@ -50,7 +50,10 @@ describe('removeCommand canonical protection', () => {
 
     // 1. Create canonical storage
     await mkdir(canonicalPath, { recursive: true });
-    await writeFile(join(canonicalPath, 'SKILL.md'), '# Test');
+    await writeFile(
+      join(canonicalPath, 'SKILL.md'),
+      '---\nname: test-skill\ndescription: Test skill\n---\n'
+    );
 
     // 2. Install (symlink) to Claude and Continue
     await symlink(canonicalPath, claudePath, 'junction');
@@ -90,7 +93,10 @@ describe('removeCommand canonical protection', () => {
     const claudePath = join(tempDir, '.claude/skills', skillName);
 
     await mkdir(canonicalPath, { recursive: true });
-    await writeFile(join(canonicalPath, 'SKILL.md'), '# Test');
+    await writeFile(
+      join(canonicalPath, 'SKILL.md'),
+      '---\nname: test-skill-2\ndescription: Test skill 2\n---\n'
+    );
     await symlink(canonicalPath, claudePath, 'junction');
 
     // Mock agents: Only Claude is installed
@@ -110,7 +116,10 @@ describe('removeCommand canonical protection', () => {
     const claudePath = join(tempDir, '.claude/skills', skillName);
 
     await mkdir(canonicalPath, { recursive: true });
-    await writeFile(join(canonicalPath, 'SKILL.md'), '# Test');
+    await writeFile(
+      join(canonicalPath, 'SKILL.md'),
+      '---\nname: lock-test-skill\ndescription: Lock test skill\n---\n'
+    );
     await symlink(canonicalPath, claudePath, 'junction');
 
     // Add skill to local lock
@@ -140,7 +149,10 @@ describe('removeCommand canonical protection', () => {
     const claudePath = join(tempDir, '.claude/skills', skillName);
 
     await mkdir(canonicalPath, { recursive: true });
-    await writeFile(join(canonicalPath, 'SKILL.md'), '# Test');
+    await writeFile(
+      join(canonicalPath, 'SKILL.md'),
+      '---\nname: global-lock-test\ndescription: Global lock test skill\n---\n'
+    );
     await symlink(canonicalPath, claudePath, 'junction');
 
     // Add skill to local lock
